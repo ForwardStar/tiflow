@@ -109,7 +109,26 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 		dsn += fmt.Sprintf("&%s='%s'", key, url.QueryEscape(val))
 	}
 
-	db, err := sql.Open("mysql", dsn)
+	var (
+		db  *sql.DB
+		err error
+	)
+
+	if config.Mock {
+		var cluster *Cluster
+		cluster, err = NewCluster()
+		if err != nil {
+			return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
+		}
+		cluster.Start()
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&interpolateParams=true&maxAllowedPacket=0",
+			"root", "", "127.0.0.1", cluster.Port)
+		config.Port = cluster.Port
+		db, err = sql.Open("mysql", dsn)
+	} else {
+		db, err = sql.Open("mysql", dsn)
+	}
+
 	if err != nil {
 		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
 	}

@@ -97,6 +97,7 @@ type DBConfig struct {
 	Port     int    `toml:"port" json:"port" yaml:"port"`
 	User     string `toml:"user" json:"user" yaml:"user"`
 	Password string `toml:"password" json:"-" yaml:"password"` // omit it for privacy
+	Mock     bool   `toml:"mock" json:"mock" yaml:"mock"`      // whether to use mock database
 	// deprecated, mysql driver could automatically fetch this value
 	MaxAllowedPacket *int              `toml:"max-allowed-packet" json:"max-allowed-packet" yaml:"max-allowed-packet"`
 	Session          map[string]string `toml:"session" json:"session" yaml:"session"`

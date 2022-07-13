@@ -26,6 +26,7 @@ import (
 	tidbConfig "github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/kv"
+	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/server"
 	"github.com/pingcap/tidb/session"
 	"github.com/pingcap/tidb/store/mockstore"
@@ -145,6 +146,8 @@ func (mock *Cluster) Start() error {
 	// close port for next listen in NewServer
 	l1.Close()
 	l2.Close()
+	mysql.TiDBReleaseVersion = "v6.1.0"
+	mysql.ServerVersion = fmt.Sprintf("5.7.25-TiDB-%s", mysql.TiDBReleaseVersion)
 	svr, err := server.NewServer(cfg, mock.TiDBDriver)
 	if err != nil {
 		return err
