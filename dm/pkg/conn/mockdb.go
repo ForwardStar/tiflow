@@ -33,6 +33,7 @@ import (
 	"github.com/tikv/client-go/v2/testutils"
 
 	"github.com/pingcap/tiflow/dm/dm/config"
+	"github.com/pingcap/tiflow/engine/pkg/version"
 )
 
 type mockDBProvider struct {
@@ -146,7 +147,7 @@ func (mock *Cluster) Start() error {
 	// close port for next listen in NewServer
 	l1.Close()
 	l2.Close()
-	mysql.TiDBReleaseVersion = "v6.1.0"
+	mysql.TiDBReleaseVersion = version.ReleaseVersion
 	mysql.ServerVersion = fmt.Sprintf("5.7.25-TiDB-%s", mysql.TiDBReleaseVersion)
 	svr, err := server.NewServer(cfg, mock.TiDBDriver)
 	if err != nil {

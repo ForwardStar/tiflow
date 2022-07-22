@@ -128,6 +128,9 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 			cluster.Start()
 			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&interpolateParams=true&maxAllowedPacket=0",
 				"root", "", "127.0.0.1", cluster.Port)
+			config.Host = "127.0.0.1"
+			config.User = "root"
+			config.Password = ""
 			config.Port = cluster.Port
 			db, err = sql.Open("mysql", dsn)
 		}
