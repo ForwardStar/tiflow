@@ -780,13 +780,13 @@ func (s *testSyncerSuite) TestRun(c *C) {
 	c.Assert(err, IsNil)
 	syncer := NewSyncer(cfg, nil, nil)
 	syncer.cfg.CheckpointFlushInterval = 30
-	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db)}
+	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db, false)}
 	syncer.toDBConns = []*dbconn.DBConn{
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
 	}
-	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
-	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
+	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	syncer.schemaTracker, err = schema.NewTestTracker(context.Background(), s.cfg.Name, defaultTestSessionCfg, syncer.downstreamTrackConn, log.L())
 	c.Assert(err, IsNil)
 
@@ -1119,13 +1119,13 @@ func (s *testSyncerSuite) TestExitSafeModeByConfig(c *C) {
 	cfg, err := s.cfg.Clone()
 	c.Assert(err, IsNil)
 	syncer := NewSyncer(cfg, nil, nil)
-	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db)}
+	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db, false)}
 	syncer.toDBConns = []*dbconn.DBConn{
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
 	}
-	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
-	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
+	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	mock.ExpectBegin()
 	mock.ExpectExec(fmt.Sprintf("SET SESSION SQL_MODE = '%s'", pmysql.DefaultSQLMode)).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
@@ -1335,11 +1335,11 @@ func (s *testSyncerSuite) TestTrackDDL(c *C) {
 	c.Assert(err, IsNil)
 	syncer := NewSyncer(cfg, nil, nil)
 	syncer.toDBConns = []*dbconn.DBConn{
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
-		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
+		dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})),
 	}
-	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
-	syncer.checkpoint.(*RemoteCheckPoint).dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(checkPointDBConn, &retry.FiniteRetryStrategy{}))
+	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
+	syncer.checkpoint.(*RemoteCheckPoint).dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(checkPointDBConn, false, &retry.FiniteRetryStrategy{}))
 	syncer.schemaTracker, err = schema.NewTestTracker(context.Background(), s.cfg.Name, defaultTestSessionCfg, syncer.ddlDBConn, log.L())
 	c.Assert(err, IsNil)
 	defer syncer.schemaTracker.Close()
@@ -1632,7 +1632,7 @@ func (s *Syncer) setupMockCheckpoint(c *C, checkPointDBConn *sql.Conn, checkPoin
 	checkPointMock.ExpectCommit()
 
 	// mock syncer.checkpoint.Init() function
-	s.checkpoint.(*RemoteCheckPoint).dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(checkPointDBConn, &retry.FiniteRetryStrategy{}))
+	s.checkpoint.(*RemoteCheckPoint).dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(checkPointDBConn, false, &retry.FiniteRetryStrategy{}))
 	// mock syncer.flushCpWorker init
 	s.checkpointFlushWorker = &checkpointFlushWorker{
 		input:              nil,
@@ -1655,9 +1655,9 @@ func (s *testSyncerSuite) TestTrackDownstreamTableWontOverwrite(c *C) {
 	c.Assert(err, IsNil)
 	dbConn, err := db.Conn(ctx)
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})
+	baseConn := conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})
 	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, baseConn)
-	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	syncer.schemaTracker, err = schema.NewTestTracker(ctx, s.cfg.Name, defaultTestSessionCfg, syncer.downstreamTrackConn, log.L())
 	c.Assert(err, IsNil)
 	defer syncer.schemaTracker.Close()
@@ -1699,9 +1699,9 @@ func (s *testSyncerSuite) TestDownstreamTableHasAutoRandom(c *C) {
 	c.Assert(err, IsNil)
 	dbConn, err := db.Conn(ctx)
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})
+	baseConn := conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})
 	syncer.ddlDBConn = dbconn.NewDBConn(s.cfg, baseConn)
-	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncer.downstreamTrackConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	syncer.schemaTracker, err = schema.NewTestTracker(ctx, s.cfg.Name, defaultTestSessionCfg, syncer.downstreamTrackConn, log.L())
 	c.Assert(err, IsNil)
 
@@ -1855,7 +1855,7 @@ func TestWaitBeforeRunExit(t *testing.T) {
 	require.NoError(t, err)
 	mockGetServerUnixTS(mock)
 
-	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db)}
+	syncer.fromDB = &dbconn.UpStreamConn{BaseDB: conn.NewBaseDB(db, false)}
 	syncer.reset()
 	require.NoError(t, syncer.genRouter())
 
@@ -1922,9 +1922,9 @@ func TestSyncerGetTableInfo(t *testing.T) {
 	require.NoError(t, err)
 	dbConn, err := db.Conn(ctx)
 	require.NoError(t, err)
-	baseConn := conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{})
+	baseConn := conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{})
 	syncer.ddlDBConn = dbconn.NewDBConn(cfg, baseConn)
-	syncer.downstreamTrackConn = dbconn.NewDBConn(cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncer.downstreamTrackConn = dbconn.NewDBConn(cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	syncer.schemaTracker, err = schema.NewTestTracker(ctx, cfg.Name, defaultTestSessionCfg, syncer.downstreamTrackConn, log.L())
 	require.NoError(t, err)
 	defer syncer.schemaTracker.Close()

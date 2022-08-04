@@ -2632,21 +2632,17 @@ func (s *Syncer) handleRowsEvent(ev *replication.RowsEvent, ec eventContext) (*f
 		return nil, nil
 	}
 
-	if s.cfg.To.Mock {
-		ec.tctx.L().Warn("downstream TiDB is mock, skip DML job")
-	} else {
-		startTime := time.Now()
-		metricTp := ""
-		for i := range dmls {
-			metricTp = dmlMetric[dmls[i].Type()]
-			job := newDMLJob(dmls[i], &ec)
-			added2Queue, err2 := s.handleJobFunc(job)
-			if err2 != nil || !added2Queue {
-				return nil, err2
-			}
+	startTime := time.Now()
+	metricTp := ""
+	for i := range dmls {
+		metricTp = dmlMetric[dmls[i].Type()]
+		job := newDMLJob(dmls[i], &ec)
+		added2Queue, err2 := s.handleJobFunc(job)
+		if err2 != nil || !added2Queue {
+			return nil, err2
 		}
-		s.metricsProxies.DispatchBinlogDurationHistogram.WithLabelValues(metricTp, s.cfg.Name, s.cfg.SourceID).Observe(time.Since(startTime).Seconds())
 	}
+	s.metricsProxies.DispatchBinlogDurationHistogram.WithLabelValues(metricTp, s.cfg.Name, s.cfg.SourceID).Observe(time.Since(startTime).Seconds())
 
 	if len(sourceTable.Schema) != 0 && !s.cfg.EnableGTID {
 		// when in position-based replication, now events before table checkpoint is sent to queue. But in GTID-based

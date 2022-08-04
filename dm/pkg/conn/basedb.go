@@ -110,11 +110,13 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 	}
 
 	var (
-		db  *sql.DB
-		err error
+		db       *sql.DB
+		err      error
+		mockTiDB bool
 	)
 
 	if config.Mock {
+		mockTiDB = true
 		db, err = sql.Open("mysql", dsn)
 		ctx, cancel := context.WithTimeout(context.Background(), netTimeout)
 		err = db.PingContext(ctx)
@@ -156,12 +158,14 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 
 	db.SetMaxIdleConns(maxIdleConns)
 
-	return NewBaseDB(db, doFuncInClose), nil
+	return NewBaseDB(db, mockTiDB, doFuncInClose), nil
 }
 
 // BaseDB wraps *sql.DB, control the BaseConn.
 type BaseDB struct {
 	DB *sql.DB
+
+	MockTiDB bool // mockTiDB identifies whether this is a mock TiDB server (which skips DML)
 
 	mu sync.Mutex // protects following fields
 	// hold all db connections generated from this BaseDB
@@ -174,9 +178,9 @@ type BaseDB struct {
 }
 
 // NewBaseDB returns *BaseDB object.
-func NewBaseDB(db *sql.DB, doFuncInClose ...func()) *BaseDB {
+func NewBaseDB(db *sql.DB, mockTiDB bool, doFuncInClose ...func()) *BaseDB {
 	conns := make(map[*BaseConn]struct{})
-	return &BaseDB{DB: db, conns: conns, Retry: &retry.FiniteRetryStrategy{}, doFuncInClose: doFuncInClose}
+	return &BaseDB{DB: db, MockTiDB: mockTiDB, conns: conns, Retry: &retry.FiniteRetryStrategy{}, doFuncInClose: doFuncInClose}
 }
 
 // GetBaseConn retrieves *BaseConn which has own retryStrategy.
@@ -191,7 +195,7 @@ func (d *BaseDB) GetBaseConn(ctx context.Context) (*BaseConn, error) {
 	if err != nil {
 		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
 	}
-	baseConn := NewBaseConn(conn, d.Retry)
+	baseConn := NewBaseConn(conn, d.MockTiDB, d.Retry)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.conns[baseConn] = struct{}{}

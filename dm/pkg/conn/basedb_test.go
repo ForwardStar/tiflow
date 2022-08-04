@@ -35,7 +35,7 @@ func TestGetBaseConn(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 
-	baseDB := NewBaseDB(db)
+	baseDB := NewBaseDB(db, false)
 
 	tctx := tcontext.Background()
 
@@ -103,7 +103,7 @@ func TestGetBaseConnWontBlock(t *testing.T) {
 	db, err := sql.Open("mysql", "root:@tcp("+addr+")/test")
 	require.NoError(t, err)
 
-	baseDB := NewBaseDB(db)
+	baseDB := NewBaseDB(db, false)
 
 	_, err = baseDB.GetBaseConn(ctx)
 	require.Error(t, err)

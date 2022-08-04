@@ -25,9 +25,12 @@ import (
 	"github.com/pingcap/failpoint"
 	"go.uber.org/zap"
 
+	"github.com/pingcap/tidb/parser"
+	"github.com/pingcap/tidb/parser/ast"
 	tcontext "github.com/pingcap/tiflow/dm/pkg/context"
 	"github.com/pingcap/tiflow/dm/pkg/log"
 	"github.com/pingcap/tiflow/dm/pkg/metricsproxy"
+	parserpkg "github.com/pingcap/tiflow/dm/pkg/parser"
 	"github.com/pingcap/tiflow/dm/pkg/retry"
 	"github.com/pingcap/tiflow/dm/pkg/terror"
 	"github.com/pingcap/tiflow/dm/pkg/utils"
@@ -71,15 +74,17 @@ import (
 type BaseConn struct {
 	DBConn *sql.Conn
 
+	MockTiDB bool
+
 	RetryStrategy retry.Strategy
 }
 
 // NewBaseConn builds BaseConn to connect real DB.
-func NewBaseConn(conn *sql.Conn, strategy retry.Strategy) *BaseConn {
+func NewBaseConn(conn *sql.Conn, mockTiDB bool, strategy retry.Strategy) *BaseConn {
 	if strategy == nil {
 		strategy = &retry.FiniteRetryStrategy{}
 	}
-	return &BaseConn{conn, strategy}
+	return &BaseConn{conn, mockTiDB, strategy}
 }
 
 // SetRetryStrategy set retry strategy for baseConn.
@@ -167,7 +172,34 @@ func (conn *BaseConn) ExecuteSQLWithIgnoreError(tctx *tcontext.Context, hVec *me
 		}
 
 		startTime = time.Now()
-		_, err = txn.ExecContext(tctx.Context(), query, arg...)
+		var (
+			needSkip bool
+			err      error
+		)
+		if conn.MockTiDB {
+			p := parser.New()
+			stmts, _ := parserpkg.Parse(p, query, "", "")
+			if insertStmt, ok := stmts[0].(*ast.InsertStmt); ok {
+				if tableSourceStmt, ok := insertStmt.Table.TableRefs.Left.(*ast.TableSource); ok {
+					if tableNameStmt, ok := tableSourceStmt.Source.(*ast.TableName); ok {
+						switch tableNameStmt.Schema.O {
+						case "dm_meta":
+						case "INFORMATION_SCHEMA":
+						case "METRICS_SCHEMA":
+						case "PERFORMANCE_SCHEMA":
+						case "mysql":
+						case "test":
+						default:
+							needSkip = true
+							tctx.L().Debug("detect mock TiDB in downstream, skipping INSERT statements.")
+						}
+					}
+				}
+			}
+		}
+		if !needSkip {
+			_, err = txn.ExecContext(tctx.Context(), query, arg...)
+		}
 		if err == nil {
 			if hVec != nil {
 				hVec.WithLabelValues("stmt", task).Observe(time.Since(startTime).Seconds())

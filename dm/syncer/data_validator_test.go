@@ -356,7 +356,7 @@ func TestValidatorDoValidate(t *testing.T) {
 	)
 	dbConn, err := db.Conn(context.Background())
 	require.NoError(t, err)
-	syncerObj.downstreamTrackConn = dbconn.NewDBConn(cfg, conn.NewBaseConn(dbConn, &retry.FiniteRetryStrategy{}))
+	syncerObj.downstreamTrackConn = dbconn.NewDBConn(cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	syncerObj.schemaTracker, err = schema.NewTestTracker(context.Background(), cfg.Name, defaultTestSessionCfg, syncerObj.downstreamTrackConn, log.L())
 	defer syncerObj.schemaTracker.Close()
 	require.NoError(t, err)
@@ -670,7 +670,7 @@ func TestValidatorGetValidationError(t *testing.T) {
 			},
 		},
 	}
-	validator.persistHelper.db = conn.NewBaseDB(db, func() {})
+	validator.persistHelper.db = conn.NewBaseDB(db, false, func() {})
 	res, err := validator.GetValidatorError(pb.ValidateErrorState_InvalidErr)
 	require.Nil(t, err)
 	require.EqualValues(t, expected[0], res)
@@ -693,7 +693,7 @@ func TestValidatorOperateValidationError(t *testing.T) {
 	validator := NewContinuousDataValidator(cfg, syncerObj, false)
 	validator.ctx, validator.cancel = context.WithCancel(context.Background())
 	validator.tctx = tcontext.NewContext(validator.ctx, validator.L)
-	validator.persistHelper.db = conn.NewBaseDB(db, func() {})
+	validator.persistHelper.db = conn.NewBaseDB(db, false, func() {})
 	sourceID := validator.cfg.SourceID
 	// 1. clear all error
 	dbMock.ExpectExec("DELETE FROM " + validator.persistHelper.errorChangeTableName + " WHERE source=\\?").

@@ -46,10 +46,10 @@ func (d *mockDBProvider) Apply(config *config.DBConfig) (*BaseDB, error) {
 	if d.verDB != nil {
 		if err := d.verDB.Ping(); err == nil {
 			// nolint:nilerr
-			return NewBaseDB(d.verDB), nil
+			return NewBaseDB(d.verDB, false), nil
 		}
 	}
-	return NewBaseDB(d.db), nil
+	return NewBaseDB(d.db, false), nil
 }
 
 // InitMockDB return a mocked db for unit test.

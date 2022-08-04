@@ -68,7 +68,7 @@ func (s *trackerSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	s.dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(con, nil))
+	s.dbConn = dbconn.NewDBConn(s.cfg, conn.NewBaseConn(con, false, nil))
 }
 
 func (s *trackerSuite) TearDownSuite(c *C) {
@@ -88,7 +88,7 @@ func (s *trackerSuite) TestTiDBAndSessionCfg(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 	// user give correct session config
 
@@ -690,7 +690,7 @@ func (s *trackerSuite) TestNotSupportedVariable(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 
 	mock.ExpectQuery("SHOW VARIABLES LIKE 'sql_mode'").WillReturnRows(
@@ -717,7 +717,7 @@ func (s *trackerSuite) TestInitDownStreamSQLModeAndParser(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 
 	tracker, err := NewTestTracker(context.Background(), "test-tracker", defaultTestSessionCfg, dbConn, dlog.L())
@@ -755,7 +755,7 @@ func (s *trackerSuite) TestGetDownStreamIndexInfo(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 	tracker, err := NewTestTracker(context.Background(), "test-tracker", defaultTestSessionCfg, dbConn, dlog.L())
 	c.Assert(err, IsNil)
@@ -797,7 +797,7 @@ func (s *trackerSuite) TestReTrackDownStreamIndex(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 	tracker, err := NewTestTracker(context.Background(), "test-tracker", defaultTestSessionCfg, dbConn, dlog.L())
 	c.Assert(err, IsNil)
@@ -889,7 +889,7 @@ func (s *trackerSuite) TestVarchar20000(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 	tracker, err := NewTestTracker(context.Background(), "test-tracker", defaultTestSessionCfg, dbConn, dlog.L())
 	c.Assert(err, IsNil)
@@ -929,7 +929,7 @@ func (s *trackerSuite) TestPlacementRule(c *C) {
 	defer db.Close()
 	con, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	baseConn := conn.NewBaseConn(con, nil)
+	baseConn := conn.NewBaseConn(con, false, nil)
 	dbConn := dbconn.NewDBConn(s.cfg, baseConn)
 	tracker, err := NewTestTracker(context.Background(), "test-tracker", defaultTestSessionCfg, dbConn, dlog.L())
 	c.Assert(err, IsNil)

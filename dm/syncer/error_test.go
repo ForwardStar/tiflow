@@ -166,7 +166,7 @@ func TestHandleSpecialDDLError(t *testing.T) {
 	conn1, err := db.Conn(context.Background())
 	require.NoError(t, err)
 	conn2.ResetBaseConnFn = func(_ *tcontext.Context, _ *conn.BaseConn) (*conn.BaseConn, error) {
-		return conn.NewBaseConn(conn1, nil), nil
+		return conn.NewBaseConn(conn1, false, nil), nil
 	}
 	err = conn2.ResetConn(tctx)
 	require.NoError(t, err)
