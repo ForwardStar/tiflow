@@ -241,7 +241,7 @@ func (t *testShardingGroupSuite) TestKeeper(c *C) {
 	c.Assert(err, IsNil)
 	dbConn, err := db.Conn(context.Background())
 	c.Assert(err, IsNil)
-	k.db = conn.NewBaseDB(db, false)
+	k.db = conn.NewBaseDB(db)
 	k.dbConn = dbconn.NewDBConn(t.cfg, conn.NewBaseConn(dbConn, false, &retry.FiniteRetryStrategy{}))
 	mock.ExpectBegin()
 	mock.ExpectExec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS `%s`", t.cfg.MetaSchema)).WillReturnResult(sqlmock.NewResult(1, 1))

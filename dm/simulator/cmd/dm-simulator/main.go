@@ -23,6 +23,7 @@ import (
 	"syscall"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tiflow/dm/pkg/conn"
 	plog "github.com/pingcap/tiflow/dm/pkg/log"
 	"github.com/pingcap/tiflow/dm/simulator/internal/config"
 	"github.com/pingcap/tiflow/dm/simulator/internal/core"
@@ -154,5 +155,29 @@ func main() {
 		gerr = err
 		return
 	}
+
+	plog.L().Info("init downstream")
+	cluster, err := conn.NewCluster()
+	if err != nil {
+		plog.L().Error("init downstream error", zap.Error(err))
+	}
+	cluster.Start()
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&interpolateParams=true&maxAllowedPacket=0",
+		"root", "", "127.0.0.1", cluster.Port)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		plog.L().Error("init downstream error", zap.Error(err))
+	}
+	err = db.PingContext(ctx)
+	if err != nil {
+		plog.L().Error("init downstream error", zap.Error(err))
+	}
+	plog.L().Info("init downstream successfully",
+		zap.String("host", "127.0.0.1"),
+		zap.String("user", "root"),
+		zap.String("password", ""),
+		zap.String("port", ""),
+	)
+
 	plog.L().Info("main exit")
 }

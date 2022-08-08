@@ -32,7 +32,7 @@ func TestGetBinlogDB(t *testing.T) {
 
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	baseDB := NewBaseDB(db, false)
+	baseDB := NewBaseDB(db)
 
 	// 5 columns for MySQL
 	rows := mock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).AddRow(

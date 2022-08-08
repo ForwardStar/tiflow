@@ -45,7 +45,7 @@ func TestCheckpoint(t *testing.T) {
 	db, mock, err := conn.InitMockDBFull()
 	require.NoError(t, err)
 	mock.ExpectExec(regexp.QuoteMeta(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s`, "`meta`"))).WillReturnResult(sqlmock.NewResult(1, 1))
-	require.NoError(t, createMetaDatabase(context.Background(), jobCfg, conn.NewBaseDB(db, false)))
+	require.NoError(t, createMetaDatabase(context.Background(), jobCfg, conn.NewBaseDB(db)))
 
 	mock.ExpectExec(regexp.QuoteMeta(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 		task_name varchar(255) NOT NULL,
@@ -53,7 +53,7 @@ func TestCheckpoint(t *testing.T) {
 		status varchar(10) NOT NULL DEFAULT 'init' COMMENT 'init,running,finished',
 		PRIMARY KEY (task_name, source_name)
 	);`, "`meta`.`test_lightning_checkpoint_list`"))).WillReturnResult(sqlmock.NewResult(1, 1))
-	require.NoError(t, createLoadCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db, false)))
+	require.NoError(t, createLoadCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db)))
 
 	mock.ExpectExec(regexp.QuoteMeta(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 		id VARCHAR(32) NOT NULL,
@@ -71,15 +71,15 @@ func TestCheckpoint(t *testing.T) {
 		update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 		UNIQUE KEY uk_id_schema_table (id, cp_schema, cp_table)
 	)`, "`meta`.`test_syncer_checkpoint`"))).WillReturnResult(sqlmock.NewResult(1, 1))
-	require.NoError(t, createSyncCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db, false)))
+	require.NoError(t, createSyncCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db)))
 
 	mock.ExpectExec(regexp.QuoteMeta("DROP TABLE IF EXISTS `meta`.`test_lightning_checkpoint_list`")).WillReturnResult(sqlmock.NewResult(1, 1))
-	require.NoError(t, dropLoadCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db, false)))
+	require.NoError(t, dropLoadCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db)))
 
 	mock.ExpectExec(regexp.QuoteMeta("DROP TABLE IF EXISTS `meta`.`test_syncer_checkpoint`")).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(regexp.QuoteMeta("DROP TABLE IF EXISTS `meta`.`test_syncer_sharding_meta`")).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(regexp.QuoteMeta("DROP TABLE IF EXISTS `meta`.`test_onlineddl`")).WillReturnResult(sqlmock.NewResult(1, 1))
-	require.NoError(t, dropSyncCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db, false)))
+	require.NoError(t, dropSyncCheckpointTable(context.Background(), jobCfg, conn.NewBaseDB(db)))
 }
 
 func TestCheckpointLifeCycle(t *testing.T) {

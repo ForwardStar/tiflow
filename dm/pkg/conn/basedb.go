@@ -26,6 +26,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/util"
+	"github.com/pingcap/tidb/util/dbutil"
 	"go.uber.org/zap"
 
 	"github.com/pingcap/tiflow/dm/dm/config"
@@ -109,36 +110,7 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 		dsn += fmt.Sprintf("&%s='%s'", key, url.QueryEscape(val))
 	}
 
-	var (
-		db       *sql.DB
-		err      error
-		mockTiDB bool
-	)
-
-	if config.Mock {
-		mockTiDB = true
-		db, err = sql.Open("mysql", dsn)
-		ctx, cancel := context.WithTimeout(context.Background(), netTimeout)
-		err = db.PingContext(ctx)
-		cancel()
-		if err != nil {
-			var cluster *Cluster
-			cluster, err = NewCluster()
-			if err != nil {
-				return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
-			}
-			cluster.Start()
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&interpolateParams=true&maxAllowedPacket=0",
-				"root", "", "127.0.0.1", cluster.Port)
-			config.Host = "127.0.0.1"
-			config.User = "root"
-			config.Password = ""
-			config.Port = cluster.Port
-			db, err = sql.Open("mysql", dsn)
-		}
-	} else {
-		db, err = sql.Open("mysql", dsn)
-	}
+	db, err := sql.Open("mysql", dsn)
 
 	if err != nil {
 		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
@@ -158,14 +130,12 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 
 	db.SetMaxIdleConns(maxIdleConns)
 
-	return NewBaseDB(db, mockTiDB, doFuncInClose), nil
+	return NewBaseDB(db, doFuncInClose), nil
 }
 
 // BaseDB wraps *sql.DB, control the BaseConn.
 type BaseDB struct {
 	DB *sql.DB
-
-	MockTiDB bool // mockTiDB identifies whether this is a mock TiDB server (which skips DML)
 
 	mu sync.Mutex // protects following fields
 	// hold all db connections generated from this BaseDB
@@ -178,9 +148,9 @@ type BaseDB struct {
 }
 
 // NewBaseDB returns *BaseDB object.
-func NewBaseDB(db *sql.DB, mockTiDB bool, doFuncInClose ...func()) *BaseDB {
+func NewBaseDB(db *sql.DB, doFuncInClose ...func()) *BaseDB {
 	conns := make(map[*BaseConn]struct{})
-	return &BaseDB{DB: db, MockTiDB: mockTiDB, conns: conns, Retry: &retry.FiniteRetryStrategy{}, doFuncInClose: doFuncInClose}
+	return &BaseDB{DB: db, conns: conns, Retry: &retry.FiniteRetryStrategy{}, doFuncInClose: doFuncInClose}
 }
 
 // GetBaseConn retrieves *BaseConn which has own retryStrategy.
@@ -195,7 +165,16 @@ func (d *BaseDB) GetBaseConn(ctx context.Context) (*BaseConn, error) {
 	if err != nil {
 		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
 	}
-	baseConn := NewBaseConn(conn, d.MockTiDB, d.Retry)
+	value, err := dbutil.ShowVersion(ctx, d.DB)
+	if err != nil {
+		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
+	}
+	version, err := utils.ExtractTiDBVersion(value)
+	mock := false
+	if err != nil && version.Major == 0 && version.Minor == 0 && version.Patch == 0 {
+		mock = true
+	}
+	baseConn := NewBaseConn(conn, mock, d.Retry)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.conns[baseConn] = struct{}{}

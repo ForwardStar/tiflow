@@ -33,7 +33,6 @@ import (
 	"github.com/tikv/client-go/v2/testutils"
 
 	"github.com/pingcap/tiflow/dm/dm/config"
-	"github.com/pingcap/tiflow/engine/pkg/version"
 )
 
 type mockDBProvider struct {
@@ -46,10 +45,10 @@ func (d *mockDBProvider) Apply(config *config.DBConfig) (*BaseDB, error) {
 	if d.verDB != nil {
 		if err := d.verDB.Ping(); err == nil {
 			// nolint:nilerr
-			return NewBaseDB(d.verDB, false), nil
+			return NewBaseDB(d.verDB), nil
 		}
 	}
-	return NewBaseDB(d.db, false), nil
+	return NewBaseDB(d.db), nil
 }
 
 // InitMockDB return a mocked db for unit test.
@@ -147,7 +146,7 @@ func (mock *Cluster) Start() error {
 	// close port for next listen in NewServer
 	l1.Close()
 	l2.Close()
-	mysql.TiDBReleaseVersion = version.ReleaseVersion
+	mysql.TiDBReleaseVersion = "v0.0.0"
 	mysql.ServerVersion = fmt.Sprintf("5.7.25-TiDB-%s", mysql.TiDBReleaseVersion)
 	svr, err := server.NewServer(cfg, mock.TiDBDriver)
 	if err != nil {
