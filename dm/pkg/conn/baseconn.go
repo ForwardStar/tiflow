@@ -173,12 +173,14 @@ func (conn *BaseConn) ExecuteSQLWithIgnoreError(tctx *tcontext.Context, hVec *me
 
 		startTime = time.Now()
 		var (
-			needSkip bool
-			err      error
+			needSkip  bool
+			needDelay int
+			err       error
 		)
 		if conn.MockTiDB {
 			p := parser.New()
 			stmts, _ := parserpkg.Parse(p, query, "", "")
+			// Skip insert statements
 			if insertStmt, ok := stmts[0].(*ast.InsertStmt); ok {
 				if tableSourceStmt, ok := insertStmt.Table.TableRefs.Left.(*ast.TableSource); ok {
 					if tableNameStmt, ok := tableSourceStmt.Source.(*ast.TableName); ok {
@@ -191,7 +193,7 @@ func (conn *BaseConn) ExecuteSQLWithIgnoreError(tctx *tcontext.Context, hVec *me
 						case "test":
 						default:
 							needSkip = true
-							tctx.L().Debug("detect mock TiDB in downstream, skipping INSERT statements.")
+							needDelay = len(insertStmt.Lists)
 						}
 					}
 				}
@@ -199,6 +201,9 @@ func (conn *BaseConn) ExecuteSQLWithIgnoreError(tctx *tcontext.Context, hVec *me
 		}
 		if !needSkip {
 			_, err = txn.ExecContext(tctx.Context(), query, arg...)
+		} else {
+			tctx.L().Warn("detect mock TiDB in downstream, skipping INSERT statements.", zap.Int("delay in microseconds", needDelay))
+			time.Sleep(time.Duration(needDelay) * time.Microsecond)
 		}
 		if err == nil {
 			if hVec != nil {
