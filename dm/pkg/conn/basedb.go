@@ -111,7 +111,6 @@ func (d *DefaultDBProviderImpl) Apply(config *config.DBConfig) (*BaseDB, error) 
 	}
 
 	db, err := sql.Open("mysql", dsn)
-
 	if err != nil {
 		return nil, terror.DBErrorAdapt(err, terror.ErrDBDriverError)
 	}
