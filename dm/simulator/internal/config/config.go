@@ -14,18 +14,109 @@
 // Package config is the configuration definitions used by the simulator.
 package config
 
+import (
+	"os"
+	"reflect"
+
+	"github.com/pingcap/errors"
+	flag "github.com/spf13/pflag"
+	"gopkg.in/yaml.v2"
+)
+
+// CLIConfig is the configuration struct for command-line-interface options.
+type CLIConfig struct {
+	IsHelp     bool
+	ConfigFile string
+}
+
+// NewCLIConfig generates a new CLI config for being parsed.
+func NewCLIConfig() *CLIConfig {
+	theConf := new(CLIConfig)
+	flag.StringVarP(&(theConf.ConfigFile), "config-file", "c", "", "config YAML file")
+	flag.BoolVarP(&(theConf.IsHelp), "help", "h", false, "print help message")
+	return theConf
+}
+
+// Config is the core configurations used by the simulator.
+type Config struct {
+	DataSources []*DataSourceConfig `yaml:"data_sources"`
+	Workloads   []*WorkloadConfig   `yaml:"workloads"`
+}
+
+// NewConfigFromFile generates a new config object from a configuration file.
+// The config file is in YAML format.
+func NewConfigFromFile(configFile string) (*Config, error) {
+	f, err := os.Open(configFile)
+	if err != nil {
+		return nil, errors.Annotate(err, "open config file error")
+	}
+	theConfig := new(Config)
+	dec := yaml.NewDecoder(f)
+	err = dec.Decode(theConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "decode YAML error")
+	}
+	return theConfig, nil
+}
+
+// DataSourceConfig is the sub config for describing a DB data source.
+type DataSourceConfig struct {
+	DataSourceID string         `yaml:"id"`
+	Host         string         `yaml:"host"`
+	Port         int            `yaml:"port"`
+	UserName     string         `yaml:"user"`
+	Password     string         `yaml:"password"`
+	Tables       []*TableConfig `yaml:"tables"`
+}
+
 // TableConfig is the sub config for describing a simulating table in the data source.
 type TableConfig struct {
-	TableID              string              `yaml:"id"`
-	DatabaseName         string              `yaml:"db"`
-	TableName            string              `yaml:"table"`
-	Columns              []*ColumnDefinition `yaml:"columns"`
-	UniqueKeyColumnNames []string            `yaml:"unique_keys"`
+	TableID              string `yaml:"id"`
+	DatabaseName         string `yaml:"db"`
+	TableName            string `yaml:"table"`
+	Columns              []*ColumnDefinition
+	UniqueKeyColumnNames []string
+}
+
+// SortedClone clonse a table config with the columns sorted.
+func (cfg *TableConfig) SortedClone() *TableConfig {
+	return &TableConfig{
+		TableID:              cfg.TableID,
+		DatabaseName:         cfg.DatabaseName,
+		TableName:            cfg.TableName,
+		Columns:              CloneSortedColumnDefinitions(cfg.Columns),
+		UniqueKeyColumnNames: append([]string{}, cfg.UniqueKeyColumnNames...),
+	}
+}
+
+// IsDeepEqual compares two tables configs to see whether all the values are equal.
+func (cfg *TableConfig) IsDeepEqual(cfgB *TableConfig) bool {
+	if cfg == nil || cfgB == nil {
+		return false
+	}
+	if cfg.TableID != cfgB.TableID ||
+		cfg.DatabaseName != cfgB.DatabaseName ||
+		cfg.TableName != cfgB.TableName {
+		return false
+	}
+	if !AreColDefinitionsEqual(cfg.Columns, cfgB.Columns) {
+		return false
+	}
+	// begin to check the unique key names
+	if !reflect.DeepEqual(cfg.UniqueKeyColumnNames, cfgB.UniqueKeyColumnNames) {
+		return false
+	}
+	return true
 }
 
 // ColumnDefinition is the sub config for describing a column in a simulating table.
 type ColumnDefinition struct {
 	ColumnName string `yaml:"name"`
 	DataType   string `yaml:"type"`
-	DataLen    int    `yaml:"length"`
+}
+
+// WorkloadConfig is the configuration to describe the attributes of a workload.
+type WorkloadConfig struct {
+	DataSources  []string `yaml:"data_sources"`
+	WorkloadCode string   `yaml:"dsl_code"`
 }

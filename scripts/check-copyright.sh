@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 result=$(find ./ -name "*.go" | grep -vE '\.pb\.go|vendor/|leaktest.go|kv_gen|redo_gen|sink_gen|pbmock|\.pb\.gw\.go|statik.go|openapi/gen\..*\.go|_mock\.go|embedded_asserts.go|empty_asserts.go|docs/swagger|bin|owner/mock' |
+=======
+result=$(find ./ -name "*.go" | grep -vE '\.pb\.go|vendor/|leaktest.go|kv_gen|redo_gen|sink_gen|pbmock|\.pb\.gw\.go|statik.go|openapi/gen\..*\.go|embedded_asserts.go|empty_asserts.go|docs/swagger|bin|owner/mock|\.antlr4\.go' |
+>>>>>>> 046aad3412ebc340398d8326714cd2432454623c
 	while read -r file_path; do
 		head=$(head -n 1 "$file_path")
 		if [[ ! "$head" =~ Copyright\ 20[0-9][0-9]\ PingCAP,\ Inc\. ]]; then

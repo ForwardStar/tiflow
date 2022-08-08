@@ -19,6 +19,20 @@ import (
 	"github.com/pingcap/tiflow/dm/simulator/internal/mcp"
 )
 
+// DMLType is the type describing different kinds of DML operations.
+type DMLType int
+
+const (
+	// DMLTypeUNKNOWN is for the unknown DML.
+	DMLTypeUNKNOWN DMLType = iota
+	// DMLTypeINSERT is for the INSERT DML.
+	DMLTypeINSERT
+	// DMLTypeUPDATE is for the UPDATE DML.
+	DMLTypeUPDATE
+	// DMLTypeDELETE is for the DELETE DML.
+	DMLTypeDELETE
+)
+
 // SQLGenerator contains all the operations for generating SQLs.
 type SQLGenerator interface {
 	// GenTruncateTable generates a TRUNCATE TABLE SQL.

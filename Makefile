@@ -1,8 +1,7 @@
 ### Makefile for ticdc
 .PHONY: build test check clean fmt cdc kafka_consumer coverage \
 	integration_test_build integration_test integration_test_mysql integration_test_kafka bank \
-	dm dm-master dm-worker dmctl dm-syncer dm_coverage \
-	engine tiflow df-master-client df-demo df-chaos-case
+	dm dm-master dm-worker dmctl dm-syncer dm_coverage dm-simulator
 
 PROJECT=tiflow
 P=3
@@ -41,9 +40,7 @@ DM_PACKAGE_LIST := go list github.com/pingcap/tiflow/dm/... | grep -vE 'pb|pbmoc
 PACKAGES := $$($(PACKAGE_LIST))
 PACKAGES_TICDC := $$($(PACKAGE_LIST_WITHOUT_DM_ENGINE))
 DM_PACKAGES := $$($(DM_PACKAGE_LIST))
-ENGINE_PACKAGE_LIST := go list github.com/pingcap/tiflow/engine/... | grep -vE 'pb|proto|engine/cmd|engine/test/e2e'
-ENGINE_PACKAGES := $$($(ENGINE_PACKAGE_LIST))
-FILES := $$(find . -name '*.go' -type f | grep -vE 'vendor|kv_gen|proto|pb\.go|pb\.gw\.go')
+FILES := $$(find . -name '*.go' -type f | grep -vE 'vendor|kv_gen|proto|pb\.go|pb\.gw\.go|antlr4\.go|gen\..*\.go')
 TEST_FILES := $$(find . -name '*_test.go' -type f | grep -vE 'vendor|kv_gen|integration|testing_utils')
 TEST_FILES_WITHOUT_DM := $$(find . -name '*_test.go' -type f | grep -vE 'vendor|kv_gen|integration|testing_utils|^\./dm')
 FAILPOINT_DIR := $$(for p in $(PACKAGES); do echo $${p\#"github.com/pingcap/$(PROJECT)/"}|grep -v "github.com/pingcap/$(PROJECT)"; done)
@@ -295,6 +292,10 @@ dm-chaos-case:
 
 dm_debug-tools:
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/binlog-event-blackhole ./dm/debug-tools/binlog-event-blackhole
+
+dm-simulator:
+	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/dm-simulator ./dm/simulator/cmd/dm-simulator
+
 
 dm_generate_proto: tools/bin/protoc-gen-gogofaster tools/bin/protoc-gen-grpc-gateway
 	./dm/generate-dm.sh

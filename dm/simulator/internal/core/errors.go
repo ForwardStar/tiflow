@@ -11,15 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sqlgen
+package core
 
 import (
 	"github.com/pingcap/errors"
 )
 
 var (
-	// ErrUKColValueNotProvided means that some column values of the unique key are not provided.
-	ErrUKColValueNotProvided = errors.New("some UK column values are not provided")
-	// ErrMissingUKValue means the input unique key is nil.
-	ErrMissingUKValue = errors.New("missing the UK values")
+	// ErrUnsupportedColumnType means the column type is unsupported for retrieving data from the DB.
+	// It is used when loading the existing DB data into the MCP.
+	ErrUnsupportedColumnType error = errors.New("unsupported column type")
+
+	// ErrTableConfigNotFound means the table configuration is not found.
+	ErrTableConfigNotFound error = errors.New("table config not found")
 )
