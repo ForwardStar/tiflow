@@ -116,6 +116,47 @@ func (conn *BaseConn) QuerySQL(tctx *tcontext.Context, query string, args ...int
 	return rows, nil
 }
 
+// AnalyzeSQLFunc parses SQL to ast and determines whether to skip it (cannot skip SQLs on default schemas), used in MockTiDB currently.
+// return
+// 1. SQL statement type as a string;
+// 2. Target schema;
+// 3. Target table;
+// 4. whether to skip the statement;
+// 5. how long to delay if need to skip.
+func (conn *BaseConn) AnalyzeSQL(query string) (string, string, string, bool, int) {
+	p := parser.New()
+	stmts, _ := parserpkg.Parse(p, query, "", "")
+	ignoreSchemas := [](string){"dm_meta", "INFORMATION_SCHEMA", "METRIC_SCHEMA", "PERFORMANCE_SCHEMA", "mysql", "test"}
+	var (
+		dmlType     string
+		tableSchema string
+		tableName   string
+		needSkip    bool
+		needDelay   int
+	)
+	// Skip INSERT statements
+	if insertStmt, ok := stmts[0].(*ast.InsertStmt); ok {
+		if tableSourceStmt, ok := insertStmt.Table.TableRefs.Left.(*ast.TableSource); ok {
+			if tableNameStmt, ok := tableSourceStmt.Source.(*ast.TableName); ok {
+				dmlType = "INSERT"
+				tableSchema = tableNameStmt.Schema.O
+				tableName = tableNameStmt.Name.O
+				needSkip = true
+				needDelay = len(insertStmt.Lists)
+			}
+		}
+	}
+
+	if needSkip {
+		for _, ignoreSchema := range ignoreSchemas {
+			if tableSchema == ignoreSchema {
+				return "", "", "", false, 0
+			}
+		}
+	}
+	return dmlType, tableSchema, tableName, needSkip, needDelay
+}
+
 // ExecuteSQLWithIgnoreError executes sql on real DB, and will ignore some error and continue execute the next query.
 // return
 // 1. failed: (the index of sqls executed error, error)
@@ -173,36 +214,25 @@ func (conn *BaseConn) ExecuteSQLWithIgnoreError(tctx *tcontext.Context, hVec *me
 
 		startTime = time.Now()
 		var (
-			needSkip  bool
-			needDelay int
-			err       error
+			dmlType     string
+			tableSchema string
+			tableName   string
+			needSkip    bool
+			needDelay   int
+			err         error
 		)
+
 		if conn.MockTiDB {
-			p := parser.New()
-			stmts, _ := parserpkg.Parse(p, query, "", "")
-			// Skip insert statements
-			if insertStmt, ok := stmts[0].(*ast.InsertStmt); ok {
-				if tableSourceStmt, ok := insertStmt.Table.TableRefs.Left.(*ast.TableSource); ok {
-					if tableNameStmt, ok := tableSourceStmt.Source.(*ast.TableName); ok {
-						switch tableNameStmt.Schema.O {
-						case "dm_meta":
-						case "INFORMATION_SCHEMA":
-						case "METRICS_SCHEMA":
-						case "PERFORMANCE_SCHEMA":
-						case "mysql":
-						case "test":
-						default:
-							needSkip = true
-							needDelay = len(insertStmt.Lists)
-						}
-					}
-				}
-			}
+			dmlType, tableSchema, tableName, needSkip, needDelay = conn.AnalyzeSQL(query)
 		}
 		if !needSkip {
 			_, err = txn.ExecContext(tctx.Context(), query, arg...)
 		} else {
-			tctx.L().Warn("detect mock TiDB in downstream, skipping INSERT statements.", zap.Int("delay in microseconds", needDelay))
+			tctx.L().Warn("detect mock TiDB in downstream, skipping a query.",
+				zap.String("type", dmlType),
+				zap.String("schema", tableSchema),
+				zap.String("table", tableName),
+				zap.Int("delay in microseconds", needDelay))
 			time.Sleep(time.Duration(needDelay) * time.Microsecond)
 		}
 		if err == nil {
