@@ -15,6 +15,9 @@
 package config
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
 	"os"
 	"reflect"
 
@@ -71,14 +74,14 @@ type DataSourceConfig struct {
 
 // TableConfig is the sub config for describing a simulating table in the data source.
 type TableConfig struct {
-	TableID              string `yaml:"id"`
-	DatabaseName         string `yaml:"db"`
-	TableName            string `yaml:"table"`
-	Columns              []*ColumnDefinition
-	UniqueKeyColumnNames []string
+	TableID              string              `yaml:"id"`
+	DatabaseName         string              `yaml:"db"`
+	TableName            string              `yaml:"table"`
+	Columns              []*ColumnDefinition `yaml:"columns"`
+	UniqueKeyColumnNames []string            `yaml:"unique_keys"`
 }
 
-// SortedClone clonse a table config with the columns sorted.
+// SortedClone clones a table config with the columns sorted.
 func (cfg *TableConfig) SortedClone() *TableConfig {
 	return &TableConfig{
 		TableID:              cfg.TableID,
@@ -87,6 +90,90 @@ func (cfg *TableConfig) SortedClone() *TableConfig {
 		Columns:              CloneSortedColumnDefinitions(cfg.Columns),
 		UniqueKeyColumnNames: append([]string{}, cfg.UniqueKeyColumnNames...),
 	}
+}
+
+// CreateUpstreamTable creates tables in the upstream database.
+func (cfg *TableConfig) CreateUpstreamTable(ctx context.Context, db *sql.DB) error {
+	sql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s;", cfg.DatabaseName)
+	_, err := db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+	columnStr := ""
+	for _, column := range cfg.Columns {
+		columnStr = fmt.Sprintf("%s%s %s", columnStr, column.ColumnName, column.DataType)
+		if column.Length != 0 {
+			columnStr = fmt.Sprintf("%s(%d)", columnStr, column.Length)
+		}
+		columnStr = fmt.Sprintf("%s, ", columnStr)
+	}
+	ukStr := ""
+	for i, ukName := range cfg.UniqueKeyColumnNames {
+		if i == len(cfg.UniqueKeyColumnNames)-1 {
+			ukStr = fmt.Sprintf("%s%s", ukStr, ukName)
+		} else {
+			ukStr = fmt.Sprintf("%s%s, ", ukStr, ukName)
+		}
+	}
+	columnStr = fmt.Sprintf("%sUNIQUE KEY (%s)", columnStr, ukStr)
+	sql = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (%s);", cfg.DatabaseName, cfg.TableName, columnStr)
+	_, err = db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DropUpstreamTable drops tables in the upstream database.
+func (cfg *TableConfig) DropUpstreamTable(ctx context.Context, db *sql.DB) error {
+	sql := fmt.Sprintf("DROP TABLE IF EXISTS %s.%s;", cfg.DatabaseName, cfg.TableName)
+	_, err := db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// IsValid checks whether the table format is valid.
+func (cfg *TableConfig) IsValid() (bool, error) {
+	if len(cfg.Columns) == 0 {
+		return false, errors.New("no columns assigned")
+	}
+	columnNameMap := make(map[string]bool)
+	for _, column := range cfg.Columns {
+		if ok := columnNameMap[column.ColumnName]; ok {
+			return false, errors.New(fmt.Sprintf("duplicate column names: %s", column.ColumnName))
+		}
+		columnNameMap[column.ColumnName] = true
+		switch column.DataType {
+		case "varchar":
+			if column.Length < 100 {
+				return false, errors.New(fmt.Sprintf("column %s has string type with length %d, but at least length 100 is required", column.ColumnName, column.Length))
+			}
+		case "text":
+		case "int":
+		case "timestamp", "datetime":
+		case "float":
+		default:
+			return false, errors.New(fmt.Sprintf("unknown data type: %s", column.DataType))
+		}
+	}
+	if len(cfg.UniqueKeyColumnNames) == 0 {
+		return false, errors.New("no unique keys assigned")
+	}
+	for _, ukName := range cfg.UniqueKeyColumnNames {
+		hasCorrespondColumn := false
+		for _, column := range cfg.Columns {
+			if ukName == column.ColumnName {
+				hasCorrespondColumn = true
+				break
+			}
+		}
+		if !hasCorrespondColumn {
+			return false, errors.New(fmt.Sprintf("no correspond column for unique key: %s", ukName))
+		}
+	}
+	return true, nil
 }
 
 // IsDeepEqual compares two tables configs to see whether all the values are equal.
@@ -113,6 +200,7 @@ func (cfg *TableConfig) IsDeepEqual(cfgB *TableConfig) bool {
 type ColumnDefinition struct {
 	ColumnName string `yaml:"name"`
 	DataType   string `yaml:"type"`
+	Length     int    `yaml:"length"`
 }
 
 // WorkloadConfig is the configuration to describe the attributes of a workload.
