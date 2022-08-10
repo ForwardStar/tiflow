@@ -15,7 +15,7 @@ data_sources:
           - name: "uid"
             type: "varchar"
             length: 100
-        unique_keys: ["uid"]
+        unique_keys: ["id"]
       - id: members_tbl02
         db: games
         table: members02
