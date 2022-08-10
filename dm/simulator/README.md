@@ -29,8 +29,8 @@ In the repository root, run ``make dm-simualtor`` to build the source code.  The
 * The downstream simulator would be pulled up; the database info (host, user, password, port) could be found in the log.
 * The upstream simulator will start; it first checks whether the config file and upstream database is valid.
 * After that, tables would be created and some data will be automatically initted on those simulating tables, and then the DML statements are automatically generated according to the workload configuration.
-* For schema change, you can use the exposed HTTP API to send some DDL instructions (you can refer to an example script in the `examples` folder),  
-  or you can directly change the table structure on the upstream MySQL.  The simulator will automatically detect the latest table structure and adjust the DML statements generated.
+* For schema change, you can use the exposed HTTP API to send some DDL instructions (you can refer to an example script in the `examples` folder), or you can directly change the table structure on the upstream MySQL.  The simulator will automatically detect the latest table structure and adjust the DML statements generated.
+* To stop server, send an interrupt signal (Ctrl+C) to the process; it will drop the tables created in the upstream.
 
 ### DSL Syntax
 
