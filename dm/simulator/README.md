@@ -94,3 +94,16 @@ Long-term:
 * Rate-limit on the simulation.
 * Metrics collection, include statements generated per second, query executed per second, transactions per second, average latency, ...
 * For the custom workload definition, replace the simple DSL with a more advanced general-purpose language, like Lua, so that sysbench Lua scripts can be directly used here as the workload.
+
+## Contributing to this project
+For practice and to get you familiar with the project, you can consider the following tasks:
+### Mock response for all DML statements
+Currently, the mock TiDB downstream only skips ``INSERT`` SQLs. One major drawback is that it could not response an appropriate delay since the data and execution is skipped. Even though we could simulate the delay for an ``INSERT`` statement, since the tables are empty, ``DELETE/UPDATE/REPLACE`` statements are of no delay which differs from the real case.
+
+One possible approach is to parse the DML statements into TiDB parser, to recognize its operation type, table info and thus simulate a trustful delay time. The detailed strategy depends on your decision.
+### Resolve deplicate unique key in simulated data
+When generating random data to upstream, we did not check whether it conflicts with each other. This is not a major problem, since the program could definitely run as normal. However, the error information may be misleading.
+
+Show the error in a more friendly way, or solve the conflicts gracefully.
+### Supporting more data type
+Currently, the supporting data type for simulated data is ``INT`` and ``VARCHAR`` (with length at least ``100``). Try supporting generating data with more data type.
